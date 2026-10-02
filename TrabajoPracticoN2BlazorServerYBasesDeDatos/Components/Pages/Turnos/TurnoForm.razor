@@ -1,0 +1,107 @@
+﻿@page "/turnos/nuevo"
+@page "/turnos/editar/{Id:int}"
+@using TrabajoPracticoN2BlazorServerYBasesDeDatos.Models
+@using TrabajoPracticoN2BlazorServerYBasesDeDatos.Services
+@inject TurnoService _turnoService
+@inject ClienteService _clienteService
+@inject ServicioService _servicioService
+@inject NavigationManager _navigationManager
+
+<PageTitle>@(Id == null ? "Asignar Turno" : "Modificar Turno")</PageTitle>
+
+<div class="container mt-4">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">@(Id == null ? "Programar Nuevo Turno" : "Modificar Turno Existente")</h4>
+        </div>
+        <div class="card-body p-4">
+            <EditForm Model="turno" OnValidSubmit="Guardar">
+                <DataAnnotationsValidator />
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">Fecha y Hora</label>
+                        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="turno.FechaHora" class="form-control" />
+                        <ValidationMessage For="@(() => turno.FechaHora)" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">Cliente</label>
+                        <InputSelect @bind-Value="turno.ClienteId" class="form-select">
+                            <option value="0">Seleccione un cliente...</option>
+                            @foreach (var c in clientes)
+                            {
+                                <option value="@c.Id">@c.Nombre @c.Apellido</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => turno.ClienteId)" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold">Servicio</label>
+                        <InputSelect @bind-Value="turno.ServicioId" class="form-select">
+                            <option value="0">Seleccione un servicio...</option>
+                            @foreach (var s in servicios)
+                            {
+                                <option value="@s.Id">@s.Nombre ($@s.Precio)</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => turno.ServicioId)" class="text-danger small" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Observaciones (Opcional)</label>
+                    <InputTextArea @bind-Value="turno.Observaciones" class="form-control" rows="2" />
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <a href="/turnos" class="btn btn-secondary me-2">Volver</a>
+                    <button type="submit" class="btn btn-success">Guardar Turno</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Turno turno = new Turno { FechaHora = DateTime.Now.AddDays(1) }; // Por defecto, propone turno para mañana
+    private List<Cliente> clientes = new();
+    private List<Servicio> servicios = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Cargamos las listas para los desplegables
+        clientes = await _clienteService.GetClientesAsync();
+        servicios = await _servicioService.GetServiciosAsync();
+
+        if (Id.HasValue)
+        {
+            var turnoDb = await _turnoService.GetTurnoByIdAsync(Id.Value);
+            if (turnoDb != null)
+            {
+                turno = turnoDb;
+            }
+        }
+    }
+
+    private async Task Guardar()
+    {
+        // Validación manual simple para obligar a seleccionar de la lista
+        if (turno.ClienteId == 0 || turno.ServicioId == 0) return;
+
+        if (Id.HasValue)
+        {
+            await _turnoService.UpdateTurnoAsync(turno);
+        }
+        else
+        {
+            await _turnoService.AddTurnoAsync(turno);
+        }
+        
+        _navigationManager.NavigateTo("/turnos");
+    }
+}
